@@ -8,9 +8,11 @@ Until AWS integrates these in the console natively you can use this stack to get
 ![Demo](images/demo.gif)
 
 
-It's designed to poll the [GitHub repo](https://github.com/aws-samples/serverless-snippets) every 12 hours. This can be changed [here](https://github.com/ljacobsson/cw-logs-insights-snippets/blob/main/template.yaml#:~:text=Schedule%3A%20rate(12%20hours)).
+It's designed to poll the [GitHub repo](https://github.com/aws-samples/serverless-snippets) every 12 hours. This can be changed [here](https://github.com/ljacobsson/cw-logs-insights-snippets/blob/main/template.yaml#:~:text=Schedule%3A%20rate(12%20hours)). 
 
-If an snippet is removed from the repo it will be removed from the AWS console after 48 hours via DynamoDB TTL expiry.
+Note that if you have access to the repository settings you are better off using [webhooks directly to EventBridge](https://aws.amazon.com/about-aws/whats-new/2022/08/amazon-eventbridge-supports-receiving-events-github-stripe-twilio-using-webhooks/) instead of polling.
+
+If a snippet is removed from the repo it will be removed from the AWS console after 48 hours via DynamoDB TTL expiry.
 
 ## Installation
 
