@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+    Runtime: nodejs16.x
+
+Resources:
+  ListSnippets:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: src/
+      Handler: ListSnippets.handler
+    Metadata:
+      BuildMethod: esbuild
+  GetSnippet:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: src/
+      Handler: GetSnippet.handler
+    Metadata:
+      BuildMethod: esbuild
+  DeleteOldSnippets:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: src/
+      Handler: DeleteOldSnippets.handler
+      Events:
+        MyDynamoDBtable:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt Table.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Sid: Statement1
+              Effect: Allow
+              Action:
+                - 'logs:DeleteQueryDefinition'
+              Resource:
+                - '*'
+    Metadata:
+      BuildMethod: esbuild
+  Table:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: OLD_IMAGE
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+  StateMachine:
+    Type: 'AWS::Serverless::StateMachine'
+    Properties:
+      Name: !Sub '${AWS::StackName}-StateMachine'
+      DefinitionUri: state-machine/statemachine.yaml
+      DefinitionSubstitutions:
+        Table: !Ref Table
+        ListSnippets: !GetAtt ListSnippets.Arn
+        GetSnippet: !GetAtt GetSnippet.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ListSnippets
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetSnippet
+        - Version: 2012-10-17
+          Statement:
+            - Sid: Statement1
+              Effect: Allow
+              Action:
+                - 'logs:PutQueryDefinition'
+              Resource:
+                - '*'
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(12 hours)
+            Enabled: true
+Outputs: {}

@@ -1,0 +1,102 @@
+StartAt: List snippets
+States:
+  List snippets:
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:lambda:invoke
+    ResultSelector:
+      Payload.$: States.StringToJson($.Payload)
+    Parameters:
+      FunctionName: ${ListSnippets}
+    Next: For each snippet
+  For each snippet:
+    Type: Map
+    ItemsPath: $.Payload.Items
+    MaxConcurrency: 5
+    Iterator:
+      StartAt: Parallel
+      States:
+        Parallel:
+          Type: Parallel
+          Next: Query definition id exists?
+          ResultPath: $.ParallelResult
+          Branches:
+            - StartAt: Get snippet
+              States:
+                Get snippet:
+                  Type: Task
+                  Resource: arn:aws:states:::aws-sdk:lambda:invoke
+                  ResultSelector:
+                    Payload.$: States.StringToJson($.Payload)
+                  Parameters:
+                    FunctionName: ${GetSnippet}
+                    Payload.$: $
+                  End: true
+            - StartAt: Get query definition id
+              States:
+                Get query definition id:
+                  Type: Task
+                  Resource: arn:aws:states:::aws-sdk:dynamodb:getItem
+                  Parameters:
+                    Key:
+                      Id:
+                        S.$: $.name
+                    TableName: ${Table}
+                  End: true
+        Save snippet:
+          Type: Task
+          Resource: arn:aws:states:::aws-sdk:cloudwatchlogs:putQueryDefinition
+          Parameters:
+            Name.$: States.Format('Community snippets/{}', $.ParallelResult[0].Payload.metadata.title)
+            QueryString.$: $.ParallelResult[0].Payload.snippet
+          Next: Save query definition id
+          ResultPath: $.PutQueryResult
+          Retry:
+          - ErrorEquals: [States.ALL]
+            BackoffRate: 2
+            IntervalSeconds: 1
+            MaxAttempts: 2
+          Catch:
+          - ErrorEquals: [States.ALL]
+            Next: Catch failure          
+        Update snippet:
+          Type: Task
+          Resource: arn:aws:states:::aws-sdk:cloudwatchlogs:putQueryDefinition
+          Parameters:
+            Name.$: States.Format('Community snippets/{}', $.ParallelResult[0].Payload.metadata.title)
+            QueryString.$: $.ParallelResult[0].Payload.snippet
+            QueryDefinitionId.$: $.ParallelResult[1].Item.QueryId.S
+          Next: Save query definition id
+          ResultPath: $.PutQueryResult
+          Retry:
+          - ErrorEquals: [States.ALL]
+            BackoffRate: 2
+            IntervalSeconds: 1
+            MaxAttempts: 2
+          Catch:
+          - ErrorEquals: [States.ALL]
+            Next: Catch failure          
+        Catch failure:
+          Type: Pass
+          End: true
+        Save query definition id:
+          Type: Task
+          Resource: arn:aws:states:::aws-sdk:dynamodb:putItem
+          ResultPath: null
+          Parameters:
+            Item:
+              Id:
+                S.$: $.name
+              QueryId:
+                S.$: $.PutQueryResult.QueryDefinitionId
+              TTL:
+                N.$: States.Format('{}',$.ttl)
+            TableName: ${Table}
+          End: true
+        Query definition id exists?:
+          Type: Choice
+          Choices:
+            - Variable: $.ParallelResult[1].Item
+              IsPresent: true
+              Next: Update snippet
+          Default: Save snippet
+    End: true

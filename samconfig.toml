@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "cw-logs-insights-snippets"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-o6vnxeqicluu"
+s3_prefix = "cw-logs-insights-snippets"
+region = "eu-west-1"
+profile = "private"
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
