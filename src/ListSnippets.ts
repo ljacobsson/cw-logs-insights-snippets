@@ -13,7 +13,7 @@ export const handler = async (): Promise<any> => {
     const ttl = secondsSinceEpoch + 24 * TWO_DAYS;
     return {
         Items: (response.data as any[])
-            .filter((p) => p.name.startsWith('cloudwatch-insight'))
+            .filter((p) => p.name.startsWith('cloudwatch-'))
             .map((p) => {
                 return { name: p.name, ttl };
             }),

@@ -15,7 +15,19 @@ export const handler = async (event: any): Promise<any> => {
         path: `${event.name}/snippet-data.json`,
     });
     const snippet = Buffer.from((snippetResponse.data as any).content, 'base64').toString('utf8');
-    const metadata = JSON.parse(Buffer.from((metadataResponse.data as any).content, 'base64').toString('utf8'));
+    let metadata;
+    try {
+        const str = Buffer.from((metadataResponse.data as any).content, 'base64')
+            .toString('utf8')
+            .replace(/[^:]\/\/.*/g, '');
+        console.log(str);
+        metadata = JSON.parse(str);
+    } catch (e) {
+        console.log(e);
+        metadata = {
+            title: event.name.replace(/-/g, ' '),
+        };
+    }
 
     return { snippet, metadata };
 };
